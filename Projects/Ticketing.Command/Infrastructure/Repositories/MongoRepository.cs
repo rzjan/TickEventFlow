@@ -25,11 +25,12 @@ public class MongoRepository<TDocument> : IMongoRepository<TDocument> where TDoc
             .GetCustomAttributes(typeof(BsonCollectionAttribute), true)
             .FirstOrDefault();
 
-        if (collectionName == null) {
+        if (collectionName != null)
+        {
             return ((BsonCollectionAttribute)collectionName).CollectionName;
         }
 
-        throw new ArgumentException("La Colección es desconocida");
+        throw new ArgumentException("La colección es desconocida");
     }
 
     public IQueryable<TDocument> AsQueryable()
@@ -64,6 +65,11 @@ public class MongoRepository<TDocument> : IMongoRepository<TDocument> where TDoc
     public async Task InsertOneAsync(TDocument document, IClientSessionHandle clientSessionHandle, CancellationToken cancellationToken)
     {
         await _collection.InsertOneAsync(clientSessionHandle, document, null, cancellationToken);
+    }
+
+    public async Task InsertOneAsync(TDocument document, CancellationToken cancellationToken)
+    {
+        await _collection.InsertOneAsync(document, null, cancellationToken);
     }
 
     public async Task RollbackTransactionAsync(IClientSessionHandle clientSessionHandle, CancellationToken cancelToken)

@@ -4,11 +4,39 @@ using FluentValidation;
 using MediatR;
 using MongoDB.Driver;
 using Ticketing.Command.Domain.EventModels;
+using Ticketing.Command.Features.Apis;
 
 namespace Ticketing.Command.Features.Tickets;
 
-public class TicketCreate
-{    
+public sealed class TicketCreate: IMinimalApi
+{
+    public void AddEnpoint(IEndpointRouteBuilder endpointRouteBuilder)
+    {
+        endpointRouteBuilder.MapPost("/api/tickets", async (
+            TicketCreateRequest ticketCreateRequest,
+            IMediator mediator,
+            CancellationToken cancellationToken
+        ) =>
+        {
+            try
+            {
+                var command = new TicketCreateCommand(ticketCreateRequest);
+                var result = await mediator.Send(command);
+                if (result)
+                {
+                    return Results.Ok(new { message = "Ticket creado exitosamente" });
+                }
+
+                return Results.Problem("Error al crear el ticket");
+            }
+            catch (Exception)
+            {
+                // No exponer detalles de la excepción al cliente; registrar internamente en el handler
+                return Results.Problem("Error al crear el ticket");
+            }
+        });
+    }
+
     /// Representa una solicitud para crear un nuevo ticket de error, incluyendo información sobre el usuario, el tipo
     /// de error y los detalles asociados.    
     public sealed class TicketCreateRequest(
@@ -53,11 +81,13 @@ public class TicketCreate
     /// responsable de procesar la solicitud y persistir el evento en la base de datos
     public sealed class TicketCreateCommandHandler(
         IEventModelRepository eventModelRepository,
-        IMapper mapper
+        IMapper mapper,
+        Microsoft.Extensions.Logging.ILogger<TicketCreateCommandHandler> logger
     ): IRequestHandler<TicketCreateCommand, bool>
     {
         private readonly IEventModelRepository _eventModelRepository = eventModelRepository;
         private readonly IMapper _mapper = mapper;
+        private readonly Microsoft.Extensions.Logging.ILogger<TicketCreateCommandHandler> _logger = logger;
 
 
         public async Task<bool> Handle(
@@ -82,32 +112,19 @@ public class TicketCreate
                 EventType = "TicketCreatedEvent",
                 EventData = ticketEventData
             };
-
-            IClientSessionHandle session = await _eventModelRepository
-            .BeginSessionAsync(cancellationToken);
-
             try
             {
-                _eventModelRepository.BeginTransaction(session);
-                await _eventModelRepository
-                .InsertOneAsync(eventModel, session, cancellationToken);
-
-                await _eventModelRepository
-                .CommitTransactionAsync(session, cancellationToken);
-
-                _eventModelRepository.DisposeSession(session);
-
+                // Use simple insert without transactions for standalone MongoDB deployments
+                await _eventModelRepository.InsertOneAsync(eventModel, cancellationToken);
                 return true;
-
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                await _eventModelRepository
-                .RollbackTransactionAsync(session, cancellationToken);
-
-                _eventModelRepository.DisposeSession(session);
+                _logger.LogError(ex, "Error al crear el ticket");
                 return false;
             }
         }
     }
+
+   
 }

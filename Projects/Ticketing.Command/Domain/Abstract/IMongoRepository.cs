@@ -13,4 +13,9 @@ public interface IMongoRepository<TDocument> :ISession where TDocument: IDocumen
         IClientSessionHandle clientSessionHandle,
         CancellationToken cancellationToken
     );        
+
+    Task InsertOneAsync(
+        TDocument document,
+        CancellationToken cancellationToken
+    );
 }
