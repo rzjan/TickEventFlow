@@ -1,3 +1,4 @@
+using Scalar.AspNetCore;
 using Ticketing.Command.Application;
 using Ticketing.Command.Features.Apis;
 using Ticketing.Command.Infrastructure;
@@ -19,6 +20,14 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
+    app.MapScalarApiReference(scalar =>
+    {
+        scalar.Title = "Microservice Ticketing.Command con Scalar";
+        scalar.DarkMode = true;
+        scalar.Theme = ScalarTheme.DeepSpace;
+        scalar.DefaultHttpClient = new(ScalarTarget.Http, ScalarClient.Http11);
+
+    });
 }
 
 //app.UseHttpsRedirection();
