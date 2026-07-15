@@ -22,4 +22,26 @@ public abstract class AggregateRoot
         _changes.Clear();
     }
 
+    
+
+    public void ApplyChange(BaseEvent @event, bool isNew = false)
+    {
+        var method = this.GetType().GetMethod("Apply", new Type[] { @event.GetType() });
+        if (method == null)
+        {
+            throw new InvalidOperationException($"The Apply method for event type {@event.GetType().Name} was not found in aggregate {this.GetType().Name}.");
+        }
+        method.Invoke(this, [@event]);
+        if (isNew)
+        {
+            _changes.Add(@event);
+        }
+    }
+
+    public void RaiseEvent(BaseEvent @event)
+    {
+        ApplyChange(@event, true);
+        _changes.Add(@event);
+    }
+
 }

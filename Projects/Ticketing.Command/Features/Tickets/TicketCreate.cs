@@ -20,7 +20,8 @@ public sealed class TicketCreate: IMinimalApi
         {
             try
             {
-                var command = new TicketCreateCommand(ticketCreateRequest);
+                var id = Guid.CreateVersion7(DateTimeOffset.UtcNow).ToString();
+                var command = new TicketCreateCommand(id, ticketCreateRequest);
                 var result = await mediator.Send(command);
                 if (result)
                 {
@@ -51,7 +52,10 @@ public sealed class TicketCreate: IMinimalApi
     }
 
     /// Comando que encapsula la solicitud de creación de un ticket, implementando la interfaz IRequest de MediatR
-    public record TicketCreateCommand(TicketCreateRequest ticketCreateRequest) : IRequest<bool>;
+    public record TicketCreateCommand(
+        string Id,    
+        TicketCreateRequest ticketCreateRequest) 
+    : IRequest<bool>;
 
     /// Valida la solicitud de creación de un ticket, asegurando que los campos requeridos estén presentes
     public class TicketCreateCommandValidator : AbstractValidator<TicketCreateCommand>
@@ -60,6 +64,8 @@ public sealed class TicketCreate: IMinimalApi
         {
             RuleFor(x => x.ticketCreateRequest)
             .SetValidator(new TicketCreateValidator());
+
+            RuleFor(x=> x.Id).NotEmpty().WithMessage("Ingrese el Id del eveento");
         }
     }
 
