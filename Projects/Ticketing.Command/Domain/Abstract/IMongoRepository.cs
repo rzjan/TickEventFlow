@@ -1,4 +1,5 @@
 ﻿using MongoDB.Driver;
+using System.Linq.Expressions;
 using Ticketing.Command.Domain.Common;
 
 namespace Ticketing.Command.Domain.Abstract;
@@ -18,4 +19,8 @@ public interface IMongoRepository<TDocument> :ISession where TDocument: IDocumen
         TDocument document,
         CancellationToken cancellationToken
     );
+
+    Task<IEnumerable<TDocument>> FilterByAsync(
+                Expression<Func<TDocument, bool>> filterExpression, 
+                CancellationToken cancellationToken);
 }
