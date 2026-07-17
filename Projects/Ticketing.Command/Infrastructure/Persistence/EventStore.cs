@@ -1,4 +1,5 @@
 ﻿using Common.Core.Events;
+using MongoDB.Driver;
 using Ticketing.Command.Domain.Abstract;
 using Ticketing.Command.Domain.EventModels;
 
@@ -27,8 +28,54 @@ public class EventStore : IEventStore
 
     }
 
-    public Task SaveEventsAsync(string aggregateId, IEnumerable<BaseEvent> events, int expectedVersion, CancellationToken cancellationToken)
+    public async Task SaveEventsAsync(string aggregateId, IEnumerable<BaseEvent> events, int expectedVersion, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        //Validar cual fue el ultimo evento que se guardo en la base de datos
+        var evenStream = await _eventModelRepository.FilterByAsync(doc => doc.AggregateIdentifier == aggregateId, cancellationToken);
+        if (!evenStream.Any() && expectedVersion != 1 && evenStream.Last().Version != expectedVersion) 
+        {
+            throw new ArgumentException("Error de concurrencia");
+        }
+        var version = expectedVersion;
+        
+        foreach (var @event in events)
+        {
+            version++;
+            @event.Version = version;
+            var evenType = @event.GetType().Name;
+            var eventModel = new EventModel
+            {
+                Timestamp = DateTime.UtcNow,
+                AggregateIdentifier = aggregateId,
+                Version = version,
+                EventType = evenType,
+                EventData = @event
+            };               
+            
+            await AddEvenStore(eventModel, cancellationToken);
+        }   
+
+    }
+
+    private async Task AddEvenStore(
+        EventModel eventModel,
+        CancellationToken cancellationToken)
+    {
+        IClientSessionHandle session = await _eventModelRepository.BeginSessionAsync(cancellationToken);
+
+        try
+        {
+            _eventModelRepository.BeginTransaction(session);
+            await _eventModelRepository.InsertOneAsync(eventModel, session, cancellationToken);
+
+            await _eventModelRepository.CommitTransactionAsync(session, cancellationToken);
+            _eventModelRepository.DisposeSession(session);
+        }
+        catch (Exception)
+        {
+
+            await _eventModelRepository.RollbackTransactionAsync(session, cancellationToken);
+            _eventModelRepository.DisposeSession(session);
+        }
     }
 }
