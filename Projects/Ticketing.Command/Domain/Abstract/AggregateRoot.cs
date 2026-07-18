@@ -44,4 +44,11 @@ public abstract class AggregateRoot
         _changes.Add(@event);
     }
 
+    public void ReplayEvents(IEnumerable<BaseEvent> events)
+    {
+        foreach (var @event in events)
+        {
+            ApplyChange(@event, false);
+        }
+    }
 }

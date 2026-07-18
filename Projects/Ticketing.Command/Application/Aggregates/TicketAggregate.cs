@@ -8,6 +8,10 @@ namespace Ticketing.Command.Application.Aggregates;
 public class TicketAggregate : AggregateRoot
 {
     public bool Active { get; private set; }
+    public TicketAggregate()
+    {
+        //Constructor vacio para poder instanciar el AggregateRoot
+    }
     public TicketAggregate(TicketCreateCommand command)
     {
         var ticketCreatedEvent = new TicketCreatedEvent
@@ -26,5 +30,5 @@ public class TicketAggregate : AggregateRoot
     {
         _id = @event.Id;
         Active = true;
-    }
+    }  
 }
