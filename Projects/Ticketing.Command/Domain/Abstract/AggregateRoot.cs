@@ -31,7 +31,7 @@ public abstract class AggregateRoot
         {
             throw new InvalidOperationException($"The Apply method for event type {@event.GetType().Name} was not found in aggregate {this.GetType().Name}.");
         }
-        method.Invoke(this, [@event]);
+        method.Invoke(this, new object[] { @event });
         if (isNew)
         {
             _changes.Add(@event);
@@ -40,8 +40,8 @@ public abstract class AggregateRoot
 
     public void RaiseEvent(BaseEvent @event)
     {
+        // Apply the event and mark it as new so ApplyChange adds it to the pending changes exactly once
         ApplyChange(@event, true);
-        _changes.Add(@event);
     }
 
     public void ReplayEvents(IEnumerable<BaseEvent> events)

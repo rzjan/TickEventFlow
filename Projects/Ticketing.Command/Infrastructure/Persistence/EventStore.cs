@@ -30,14 +30,27 @@ public class EventStore : IEventStore
 
     public async Task SaveEventsAsync(string aggregateId, IEnumerable<BaseEvent> events, int expectedVersion, CancellationToken cancellationToken)
     {
-        //Validar cual fue el ultimo evento que se guardo en la base de datos
-        var evenStream = await _eventModelRepository.FilterByAsync(doc => doc.AggregateIdentifier == aggregateId, cancellationToken);
-        if (!evenStream.Any() && expectedVersion != 1 && evenStream.Last().Version != expectedVersion) 
+        // Validar concurrencia: comparar la última versión persistida con expectedVersion
+        var eventStream = (await _eventModelRepository.FilterByAsync(doc => doc.AggregateIdentifier == aggregateId, cancellationToken)).ToList();
+
+        if (!eventStream.Any())
         {
-            throw new ArgumentException("Error de concurrencia");
+            // No hay eventos previos: esperamos que expectedVersion sea 0
+            if (expectedVersion != 0)
+            {
+                throw new ArgumentException("Error de concurrencia");
+            }
+        }
+        else
+        {
+            var lastVersion = eventStream.Max(x => x.Version);
+            if (lastVersion != expectedVersion)
+            {
+                throw new ArgumentException("Error de concurrencia");
+            }
         }
         var version = expectedVersion;
-        
+
         foreach (var @event in events)
         {
             version++;
@@ -50,10 +63,11 @@ public class EventStore : IEventStore
                 Version = version,
                 EventType = evenType,
                 EventData = @event
-            };               
-            
+            };
+
+            // Insert using transactions/sessions (requires replica set and correct DNS from the app)
             await AddEvenStore(eventModel, cancellationToken);
-        }   
+        }
 
     }
 

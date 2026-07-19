@@ -78,8 +78,10 @@ public class MongoRepository<TDocument> : IMongoRepository<TDocument> where TDoc
         await clientSessionHandle.AbortTransactionAsync(cancelToken);
     }
 
-    public Task<IEnumerable<TDocument>> FilterByAsync(Expression<Func<TDocument, bool>> filterExpression, CancellationToken cancellationToken)
+    public async Task<IEnumerable<TDocument>> FilterByAsync(Expression<Func<TDocument, bool>> filterExpression, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        var coleccion = await _collection.FindAsync(filterExpression, null, cancellationToken);
+        var result = await coleccion.ToListAsync();
+        return result.Count != 0 ? result : Enumerable.Empty<TDocument>();
     }
 }

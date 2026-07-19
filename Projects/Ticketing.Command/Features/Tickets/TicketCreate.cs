@@ -45,12 +45,12 @@ public sealed class TicketCreate : IMinimalApi
     /// de error y los detalles asociados.    
     public sealed class TicketCreateRequest(
             string username,
-            int typeError,
+            int? typeError,
             string detailError
     )
     {
         public string Username { get; set; } = username;
-        public int TypeError { get; set; }
+        public int? TypeError { get; set; } = typeError;
         public string DetailError { get; set; } = detailError;
     }
 
