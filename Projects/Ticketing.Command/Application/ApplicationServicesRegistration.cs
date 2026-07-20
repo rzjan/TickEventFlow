@@ -15,6 +15,8 @@ public static class ApplicationServicesRegistration
     {
         services.Configure<MongoSettings>(configuration.GetSection("MongoSettings"));
 
+        services.Configure<KafkaSettings>(configuration.GetSection("KafkaSettings"));
+
         services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(ApplicationServicesRegistration).Assembly));
 
         services.AddValidatorsFromAssembly(typeof(ApplicationServicesRegistration).Assembly);
