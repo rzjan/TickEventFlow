@@ -2,7 +2,7 @@
 using Common.Core.Producers;
 using Confluent.Kafka;
 using Microsoft.Extensions.Options;
-using System.Text.Json;
+using Newtonsoft.Json;
 using Ticketing.Command.Application.Models;
 
 namespace Ticketing.Command.Infrastructure.Persistence;
@@ -21,7 +21,7 @@ public class TicketEventProducer : IEventProducer
         var config = new ProducerConfig
         {
             BootstrapServers = $"{_kafkaSettings.Hostname}:{_kafkaSettings.Port}"
-        };        
+        };
 
         using var producer = new ProducerBuilder<string, string>(config)
             .SetKeySerializer(Serializers.Utf8)
@@ -31,7 +31,7 @@ public class TicketEventProducer : IEventProducer
         var eventMessage = new Message<string, string>
         {
             Key = Guid.NewGuid().ToString(), // o usa una propiedad del evento si existe
-            Value = JsonSerializer.Serialize(@event)
+            Value = JsonConvert.SerializeObject(@event)
         };
 
         var deliveryStatus = await producer.ProduceAsync(topic, eventMessage);
