@@ -2,6 +2,6 @@
 
 public interface IUnitOfWork
 {
-    IGenericRepository<T> RepositoryGeneric<T>() where T : class;
+    IGenericRepository<TEntity> RepositoryGeneric<TEntity>() where TEntity : class;
     Task<int> Complete();
 }
