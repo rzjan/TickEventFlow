@@ -1,3 +1,4 @@
+using Ticketing.Query.Application.Extensions;
 using Ticketing.Query.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,5 +24,5 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
-
+await app.ApplyMigration();
 app.Run();
