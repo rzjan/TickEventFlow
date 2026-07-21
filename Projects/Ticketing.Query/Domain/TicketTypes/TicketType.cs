@@ -1,0 +1,7 @@
+﻿namespace Ticketing.Query.Domain.TicketTypes;
+
+public class TicketType
+{
+    public int Id { get; set; }
+    public required string Name { get; set; }
+}
