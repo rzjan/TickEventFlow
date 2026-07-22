@@ -25,4 +25,9 @@ public class EventHanlder : IEventHandler
 
         await _mediator.Send( command );
     }
+
+    public Task On(TicketUpdatedEvent @event)
+    {
+        throw new NotImplementedException();
+    }
 }
