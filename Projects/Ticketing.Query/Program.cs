@@ -1,3 +1,4 @@
+using Ticketing.Query.Application;
 using Ticketing.Query.Application.Extensions;
 using Ticketing.Query.Infrastructure;
 
@@ -7,7 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.RegisterInfrastructureServices(builder.Configuration);
-
+builder.Services.RegisterAppplicationServices();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 

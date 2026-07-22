@@ -1,6 +1,8 @@
 ﻿using Confluent.Kafka;
 using Microsoft.EntityFrameworkCore;
 using Ticketing.Query.Domain.Abstractions;
+using Ticketing.Query.Domain.Employees;
+using Ticketing.Query.Infrastructure.Consumers;
 using Ticketing.Query.Infrastructure.Persistence;
 using Ticketing.Query.Infrastructure.Repositories;
 
@@ -26,6 +28,11 @@ public static class InfrastructureServiceRegistration
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
 
         services.Configure<ConsumerConfig>(configuration.GetSection(nameof(ConsumerConfig)));
+
+        //regisro la clase ConsumerHostedService que es el proceso en backround
+        services.AddHostedService<ConsumerHostedService>();
+        services.AddScoped<IEventHandler, Handlers.EventHanlder>();
+        services.AddScoped<IEmployeeRepository, EmployeeRepository>();
         return services;
     }
 }

@@ -1,6 +1,7 @@
 ﻿
 using Common.Core.Events;
 using Confluent.Kafka;
+using Microsoft.Extensions.Options;
 using System.Text.Json;
 using Ticketing.Query.Domain.Abstractions;
 using Ticketing.Query.Infrastructure.Converters;
@@ -17,11 +18,11 @@ public class ConsumerHostedService : IHostedService
     private readonly IServiceProvider _serviceProvider;
 
     public ConsumerHostedService(ILogger<ConsumerHostedService> logger,
-                                 ConsumerConfig config,
+                                 IOptions<ConsumerConfig> config,
                                  IServiceProvider serviceProvider)
     {
         _logger = logger;
-        _config = config;
+        _config = config.Value;
         _serviceProvider = serviceProvider;
     }
 
