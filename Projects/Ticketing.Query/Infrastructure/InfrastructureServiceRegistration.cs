@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Confluent.Kafka;
+using Microsoft.EntityFrameworkCore;
 using Ticketing.Query.Domain.Abstractions;
 using Ticketing.Query.Infrastructure.Persistence;
 using Ticketing.Query.Infrastructure.Repositories;
@@ -25,6 +26,8 @@ public static class InfrastructureServiceRegistration
         services.AddSingleton<DataBaseContextFactory>(new DataBaseContextFactory(configureDbContext));
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
+
+        services.Configure<ConsumerConfig>(configuration.GetSection(nameof(ConsumerConfig)));
         return services;
     }
 }
