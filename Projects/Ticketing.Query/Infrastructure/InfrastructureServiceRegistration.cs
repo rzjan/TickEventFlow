@@ -1,5 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using Ticketing.Query.Domain.Abstractions;
 using Ticketing.Query.Infrastructure.Persistence;
+using Ticketing.Query.Infrastructure.Repositories;
 
 namespace Ticketing.Query.Infrastructure;
 
@@ -21,7 +23,8 @@ public static class InfrastructureServiceRegistration
         // Register the DbContext with the configured options
         services.AddDbContext<TicketDbContext>(opt=> opt.UseNpgsql(connectionString));
         services.AddSingleton<DataBaseContextFactory>(new DataBaseContextFactory(configureDbContext));
-
+        services.AddScoped<IUnitOfWork, UnitOfWork>();
+        services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepository<>));
         return services;
     }
 }
