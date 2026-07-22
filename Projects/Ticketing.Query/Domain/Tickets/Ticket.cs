@@ -16,4 +16,17 @@ public class Ticket: Entity
     public virtual TicketType? TicketType { get; set; }   
     public virtual ICollection<Employee> Employees { get; set; } = new List<Employee>();
     public virtual ICollection<TicketEmployee> TicketEmployees { get; set; } = new List<TicketEmployee>();
+
+    private Ticket(){}
+    private Ticket(Guid id, TicketType? ticketType, string description):base(id)
+    {
+        TicketType = ticketType;
+        Description = description;
+
+    }
+
+    public static Ticket Create(Guid id, TicketType? ticketType, string description)
+    {
+        return new Ticket(id, ticketType, description);
+    }
 }

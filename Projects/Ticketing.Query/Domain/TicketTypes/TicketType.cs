@@ -1,4 +1,5 @@
 ﻿using Common.Core.Domain;
+using System;
 using System.Diagnostics.CodeAnalysis;
 
 namespace Ticketing.Query.Domain.TicketTypes;
@@ -11,11 +12,17 @@ public class TicketType
     public int Id { get; set; }
     public required string Name { get; set; }
 
-    public static TicketType Create(int id)
+    public static TicketType? Create(int? id)
     {
-        var ticketTypeEnum = (TicketTypeEnum)id;
+        if (!id.HasValue)
+            return null;
+
+        if (!Enum.IsDefined(typeof(TicketTypeEnum), id.Value))
+            return null;
+
+        var ticketTypeEnum = (TicketTypeEnum)id.Value;
         string stringValue = ticketTypeEnum.ToString();
 
-        return new TicketType(id, stringValue);
+        return new TicketType(id.Value, stringValue);
     }
 }

@@ -10,7 +10,7 @@ public class TicketEmployeeConfiguration : IEntityTypeConfiguration<TicketEmploy
     public void Configure(EntityTypeBuilder<TicketEmployee> builder)
     {
         builder.ToTable("TicketEmployees");
-        builder.HasKey(te => new { te.TicketId, te.EmploteeId });
+        builder.HasKey(te => new { te.TicketId, te.EmployeeId });
     }
 }
 public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
@@ -36,7 +36,7 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
                 j => j
                 .HasOne(p => p.Employee)
                 .WithMany(p => p.TicketEmployees)
-                .HasForeignKey(p => p.EmploteeId),
+                .HasForeignKey(p => p.EmployeeId),
                 //Se configura la relación entre TicketEmployee y Ticket
                 j => j
                 .HasOne(p => p.Ticket)
@@ -44,7 +44,7 @@ public class TicketConfiguration : IEntityTypeConfiguration<Ticket>
                 .HasForeignKey(p => p.TicketId),
                 //Clave primaria compuesta
                 j => { 
-                  j.HasKey(t => new { t.TicketId, t.EmploteeId });
+                  j.HasKey(t => new { t.TicketId, t.EmployeeId });
                 }
             );
     }

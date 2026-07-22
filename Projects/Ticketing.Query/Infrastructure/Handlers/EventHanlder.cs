@@ -16,7 +16,7 @@ public class EventHanlder : IEventHandler
 
     public async Task On(TicketCreatedEvent @event)
     {
-        var command = new CreateTicketCommand(
+        var command = new TicketCreateCommand(
                 @event.Id,
                 @event.UserName,
                 @event.TypeError,
