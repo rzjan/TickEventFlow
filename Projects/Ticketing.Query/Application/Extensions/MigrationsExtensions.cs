@@ -1,5 +1,4 @@
-﻿using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Ticketing.Query.Infrastructure.Persistence;
 
 namespace Ticketing.Query.Application.Extensions;
@@ -15,7 +14,7 @@ public static class MigrationExtensions
 
             try
             {
-                var contextFacotry = service.GetRequiredService<DataBaseContextFactory>();                
+                var contextFacotry = service.GetRequiredService<DataBaseContextFactory>();
                 using TicketDbContext dbContext = contextFacotry.CreateDbContext();
                 await dbContext.Database.MigrateAsync();
 
@@ -23,7 +22,7 @@ public static class MigrationExtensions
             catch (Exception ex)
             {
                 var logger = loggerFactory.CreateLogger<Program>();
-                logger.LogError(ex, "An error occurred while migrating the database.");                
+                logger.LogError(ex, "An error occurred while migrating the database.");
             }
         }
     }
