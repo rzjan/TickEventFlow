@@ -16,6 +16,10 @@ public class ConsumerHostedService : IHostedService
     private readonly ILogger<ConsumerHostedService> _logger;
     private readonly ConsumerConfig _config;
     private readonly IServiceProvider _serviceProvider;
+    private CancellationTokenSource? _cts;
+    private Task? _executingTask;
+    private const int MaxHandlerRetries = 3;
+    private readonly TimeSpan BaseRetryDelay = TimeSpan.FromSeconds(1);
 
     public ConsumerHostedService(ILogger<ConsumerHostedService> logger,
                                  IOptions<ConsumerConfig> config,
@@ -26,87 +30,137 @@ public class ConsumerHostedService : IHostedService
         _serviceProvider = serviceProvider;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    public Task StartAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("El event consumer esta trabajando");
+
+        // Crear un CTS ligado al token del host para poder cancelar internamente
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        // Iniciar la tarea de ejecución en background
+        _executingTask = Task.Run(() => ExecuteAsync(_cts.Token));
+
+        return Task.CompletedTask;
+    }
+
+    private async Task ExecuteAsync(CancellationToken cancellationToken)
+    {
         // nombre del topic a suscribirse (debe coincidir con el topic donde se publican eventos)
         var topic = "KAFKA_TOPIC";
 
-        // -------------------------
-        // 1) Construcción del consumer
-        // -------------------------
-        // Se crea un Consumer de Confluent.Kafka con la configuración inyectada.
-        // Se especifican los deserializadores para clave y valor (en este caso UTF8 -> string).
         using var consumer = new ConsumerBuilder<string, string>(_config)
                                 .SetKeyDeserializer(Deserializers.Utf8)
                                 .SetValueDeserializer(Deserializers.Utf8)
                                 .Build();
 
-        // -------------------------
-        // 2) Suscripción al topic
-        // -------------------------
-        // El consumidor se subscribe al topic indicado. A partir de aquí recibirá mensajes publicados.
         consumer.Subscribe(topic);
 
-        // -------------------------
-        // 3) Bucle de consumo
-        // -------------------------
-        // Loop continuo que consume mensajes. Se utiliza el CancellationToken para poder detenerlo.
-        while (true)
+        var options = new JsonSerializerOptions
         {
-            // Consume un mensaje (bloqueante hasta que llega uno o se cancela).
-            var consumeResult = consumer.Consume(cancellationToken);
-            if (consumeResult is null) continue; // no hay resultado, seguir esperando
-            if (consumeResult.Message is null) continue; // mensaje nulo, ignorar
+            Converters = { new EventJsonConverter() }
+        };
 
-            // -------------------------
-            // 4) Deserialización del evento
-            // -------------------------
-            // Configuramos JsonSerializer para soportar la conversión personalizada de eventos
-            var options = new JsonSerializerOptions
+        try
+        {
+            while (!cancellationToken.IsCancellationRequested)
             {
-                Converters = { new EventJsonConverter() }
-            };
-            // Deserializamos el payload (string JSON) a la clase base BaseEvent
-            var @event = JsonSerializer.Deserialize<BaseEvent>(consumeResult.Message.Value, options);
+                ConsumeResult<string, string>? consumeResult = null;
+                try
+                {
+                    consumeResult = consumer.Consume(cancellationToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    // Se solicitó cancelación, salir del loop
+                    break;
+                }
 
-            if (@event is null) throw new ArgumentNullException($"El {nameof(@event)} no se pudo procesr el json parser");
+                if (consumeResult is null) continue;
+                if (consumeResult.Message is null) continue;
 
-            // -------------------------
-            // 5) Resolución del handler mediante DI
-            // -------------------------
-            // Creamos un scope para resolver dependencias con lifetime Scoped/Transient
-            using IServiceScope scope = _serviceProvider.CreateScope();
-            var _eventHandler = scope.ServiceProvider.GetRequiredService<IEventHandler>();
+                var @event = JsonSerializer.Deserialize<BaseEvent>(consumeResult.Message.Value, options);
+                if (@event is null)
+                {
+                    _logger.LogWarning("Mensaje recibido no pudo deserializarse a BaseEvent. Offset: {Offset}", consumeResult.Offset);
+                    // No commiteamos para permitir inspección/manual handling
+                    continue;
+                }
 
-            // -------------------------
-            // 6) Invocación del handler correspondiente
-            // -------------------------
-            // Buscamos mediante reflexión el método On que acepte el tipo concreto de evento
-            var handlerMethod =  _eventHandler.GetType().GetMethod("On", new Type[] {@event.GetType()});
-            if (handlerMethod is null)
-            {
-                // Si no hay método, se considera error de configuración/implementación
-                throw new ArgumentNullException(nameof(handlerMethod), "No se encontro el método handler correspondiente");
+                // Intentos de manejo con backoff simple. Crear un scope por intento para evitar que
+                // el mismo DbContext (y sus entidades fallidas) queden en estado rastreado entre reintentos.
+                var handled = false;
+                for (int attempt = 1; attempt <= MaxHandlerRetries && !handled; attempt++)
+                {
+                    using IServiceScope scope = _serviceProvider.CreateScope();
+                    var _eventHandler = scope.ServiceProvider.GetRequiredService<IEventHandler>();
+
+                    var handlerMethod = _eventHandler.GetType().GetMethod("On", new Type[] { @event.GetType() });
+                    if (handlerMethod is null)
+                    {
+                        _logger.LogError("No se encontro el método handler correspondiente para {EventType}", @event.GetType().Name);
+                        break;
+                    }
+
+                    try
+                    {
+                        var invokeResult = handlerMethod.Invoke(_eventHandler, new object[] { @event });
+                        if (invokeResult is System.Threading.Tasks.Task task)
+                        {
+                            await task.ConfigureAwait(false);
+                        }
+
+                        // Si llegamos acá, fue procesado correctamente
+                        consumer.Commit(consumeResult);
+                        handled = true;
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Error procesando evento {EventType} en intento {Attempt}", @event.GetType().Name, attempt);
+
+                        if (attempt < MaxHandlerRetries)
+                        {
+                            var delay = TimeSpan.FromMilliseconds(BaseRetryDelay.TotalMilliseconds * Math.Pow(2, attempt - 1));
+                            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+                        }
+                        else
+                        {
+                            _logger.LogWarning("Evento {EventType} falló tras {Attempts} intentos. Offset: {Offset}", @event.GetType().Name, MaxHandlerRetries, consumeResult.Offset);
+                        }
+                    }
+                }
             }
-
-            // Invocamos el handler pasando la instancia del evento
-            handlerMethod.Invoke(_eventHandler, new object[] { @event });
-
-            // -------------------------
-            // 7) Commit del offset
-            // -------------------------
-            // Confirmamos a Kafka que hemos procesado el mensaje correctamente (avanzar offset)
-            consumer.Commit(consumeResult);
         }
-
+        finally
+        {
+            try
+            {
+                consumer.Close();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error cerrando consumer");
+            }
+        }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
-        // Aquí se debería implementar la lógica para detener el servicio de forma ordenada.
-        // Por ejemplo: señalizar al bucle de consumo que finalice y cerrar/Dispose del consumer.
-        // Actualmente no implementado intencionalmente.
-        return Task.CompletedTask;
+        // Señalizar cancelación a la tarea de consumo
+        if (_cts is null)
+            return;
+
+        try
+        {
+            _cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+            // Ignorar
+        }
+
+        if (_executingTask is not null)
+        {
+            // Esperar hasta que termine o hasta que el host fuerce el cierre
+            await Task.WhenAny(_executingTask, Task.Delay(TimeSpan.FromSeconds(10), cancellationToken)).ConfigureAwait(false);
+        }
     }
 }
