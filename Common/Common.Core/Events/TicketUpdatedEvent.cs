@@ -6,7 +6,7 @@ public class TicketUpdatedEvent: BaseEvent
     {
     }
 
-    public string? Status { get; set; }
+    public int TicketType { get; set; }
     public string? Description { get; set; }
     public string? Username { get; set; }
 

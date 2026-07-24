@@ -32,7 +32,7 @@ public class TicketAggregate : AggregateRoot
         Active = true;
     }  
 
-    public void EditTicket(string status, string description, string username)
+    public void EditTicket(int ticketType, string description, string username)
     {
         if (!Active) 
         { 
@@ -46,7 +46,7 @@ public class TicketAggregate : AggregateRoot
         RaiseEvent(new TicketUpdatedEvent
         {
             Id = Id,
-            Status = status,
+            TicketType = ticketType,
             Description = description,
             Username = username
         });
