@@ -21,6 +21,8 @@ public static class InfrastructureServiceRegistration
     {
         BsonClassMap.RegisterClassMap<BaseEvent>();
         BsonClassMap.RegisterClassMap<TicketCreatedEvent>();
+        BsonClassMap.RegisterClassMap<TicketUpdatedEvent>();
+        
 
         services.AddScoped(
             typeof(IMongoRepository<>), typeof(MongoRepository<>)

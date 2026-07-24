@@ -22,8 +22,6 @@ public abstract class AggregateRoot
         _changes.Clear();
     }
 
-    
-
     public void ApplyChange(BaseEvent @event, bool isNew = false)
     {
         var method = this.GetType().GetMethod("Apply", new Type[] { @event.GetType() });
